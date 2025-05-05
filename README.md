@@ -19,12 +19,7 @@ This project implements a Retrieval-Augmented Generation (RAG) system using the 
 
 ## Installation
 
-1. Clone the repository:
-
-```bash
-git clone <your-repo-url>
-cd <your-repo-name>
-```
+1. Clone the repository
 
 2. Create and activate a virtual environment:
 
@@ -91,4 +86,3 @@ The project uses several key libraries:
 - Responses are streamed word by word for better readability
 - Conversation history is maintained during the session
 - The vector store is persisted in the `chroma_db` directory
-
