@@ -9,6 +9,17 @@ import PyPDF2
 import sys
 import os
 import time
+import glob
+from pathlib import Path
+
+# Constants
+PDF_DIR = "pdf_files"
+CHROMA_DIR = "chroma_db"
+
+def ensure_directories():
+    """Ensure required directories exist."""
+    Path(PDF_DIR).mkdir(exist_ok=True)
+    Path(CHROMA_DIR).mkdir(exist_ok=True)
 
 def extract_text_from_pdf(pdf_path):
     """Extract text from a PDF file."""
@@ -26,16 +37,43 @@ def extract_text_from_pdf(pdf_path):
                     if page_text:
                         text += page_text + "\n"
                 except Exception as e:
-                    print(f"Warning: Could not extract text from page {page_num + 1}: {str(e)}")
+                    print(f"Warning: Could not extract text from page {page_num + 1} in {pdf_path}: {str(e)}")
                     continue
             
             if not text.strip():
-                raise Exception("No text could be extracted from the PDF")
+                raise Exception(f"No text could be extracted from {pdf_path}")
             
             return text
     except Exception as e:
-        print(f"Error reading PDF file: {str(e)}")
+        print(f"Error reading PDF file {pdf_path}: {str(e)}")
+        return None
+
+def process_pdf_files():
+    """Process all PDF files in the pdf_files directory and combine their content."""
+    all_text = []
+    pdf_files = glob.glob(os.path.join(PDF_DIR, "*.pdf"))
+    
+    if not pdf_files:
+        print(f"No PDF files found in {PDF_DIR} directory.")
+        print(f"Please place your PDF files in the {PDF_DIR} directory.")
         sys.exit(1)
+    
+    print(f"Found {len(pdf_files)} PDF files to process.")
+    
+    for pdf_file in pdf_files:
+        print(f"\nProcessing {os.path.basename(pdf_file)}...")
+        text = extract_text_from_pdf(pdf_file)
+        if text:
+            all_text.append(text)
+            print(f"Successfully processed {os.path.basename(pdf_file)}")
+        else:
+            print(f"Skipping {os.path.basename(pdf_file)} due to errors")
+    
+    if not all_text:
+        print("No text could be extracted from any PDF files.")
+        sys.exit(1)
+    
+    return "\n\n".join(all_text)
 
 # Initialize the text splitter
 text_splitter = RecursiveCharacterTextSplitter(
@@ -45,14 +83,12 @@ text_splitter = RecursiveCharacterTextSplitter(
 )
 
 try:
-    # Read the PDF file
-    pdf_path = "s41587-024-02551-2.pdf"
-    if not os.path.exists(pdf_path):
-        print(f"Error: {pdf_path} not found. Please make sure the file exists in the current directory.")
-        sys.exit(1)
+    # Ensure required directories exist
+    ensure_directories()
     
-    print("Reading PDF file...")
-    text = extract_text_from_pdf(pdf_path)
+    # Process all PDF files
+    print("Reading PDF files...")
+    text = process_pdf_files()
     print("PDF reading completed successfully.")
     
     # Split the text into chunks
@@ -71,7 +107,7 @@ try:
     vectorstore = Chroma.from_texts(
         texts=chunks,
         embedding=embeddings,
-        persist_directory="./chroma_db"
+        persist_directory=CHROMA_DIR
     )
     print("Vector store created successfully.")
 
@@ -89,7 +125,7 @@ try:
         sys.exit(1)
 
     # Create a custom prompt template
-    template = """You are having a conversation about a scientific paper. Use the following pieces of context and conversation history to answer the question at the end. 
+    template = """You are having a conversation about scientific papers. Use the following pieces of context and conversation history to answer the question at the end. 
     If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
     Context: {context}
@@ -140,13 +176,13 @@ try:
             return f"Error processing question: {str(e)}"
 
     if __name__ == "__main__":
-        # Example questions about the paper on engineered adipocytes
+        # Example questions about the papers
         questions = [
-            "What is the main finding of this study about engineered adipocytes and tumor progression?",
-            "How do the engineered adipocytes work to suppress tumor progression?",
-            "What types of cancer models were used in this study?",
-            "What are the potential clinical implications of this research?",
-            "What are the key limitations or challenges mentioned in the study?"
+            "What are the main findings across all the papers?",
+            "How do the different studies relate to each other?",
+            "What are the common methodologies used in these studies?",
+            "What are the key limitations mentioned across the papers?",
+            "What are the potential future research directions suggested?"
         ]
         
         print("RAG System Test\n")
@@ -158,7 +194,7 @@ try:
         
         # Interactive mode
         print("\n=== Interactive Mode ===")
-        print("You can now ask questions about the paper. Type 'quit' to exit.")
+        print("You can now ask questions about the papers. Type 'quit' to exit.")
         print("The system will remember our conversation context.\n")
         
         while True:
